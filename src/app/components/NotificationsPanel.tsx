@@ -1,0 +1,176 @@
+import { useState } from 'react';
+import { Mail, FileText, Download, Eye, ChevronDown, ChevronRight } from 'lucide-react';
+import { SendEmailModal, type EmailNotification, type EmailAttachment } from './SendEmailModal';
+import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
+import { AttachmentPreviewModal } from './AttachmentPreviewModal';
+
+interface NotificationsPanelProps {
+  recordId?: string;
+  notifications: EmailNotification[];
+  onSend: (email: EmailNotification) => void;
+  showSendEmail: boolean;
+  setShowSendEmail: (open: boolean) => void;
+}
+
+// Notifications tab in the right rail — lists emails sent for this record. Empty
+// state mirrors the Tasks tab (icon + copy + a primary action button). The
+// "Send Email" action opens the SendEmailModal; sent emails render as cards.
+export function NotificationsPanel({ recordId, notifications, onSend, showSendEmail, setShowSendEmail }: NotificationsPanelProps) {
+  const [previewAttachment, setPreviewAttachment] = useState<EmailAttachment | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) =>
+    setExpandedIds((prev) => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
+
+  const Row = ({ label, value }: { label: string; value: string }) => (
+    <div className="flex gap-2 text-[12px]">
+      <span className="text-[#7B8FA5] flex-shrink-0 w-[110px]">{label}</span>
+      <span className="text-[#364658] min-w-0 break-words">{value || '—'}</span>
+    </div>
+  );
+
+  return (
+    <div>
+      {notifications.length === 0 ? (
+        <div className="flex items-center justify-center min-h-[320px]">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center size-14 rounded-full bg-[#F1F5F9] mb-4">
+              <Mail className="size-7 text-[#7B8FA5]" />
+            </div>
+            <h3 className="text-[15px] font-semibold text-[#364658] mb-1.5">No Notifications Yet</h3>
+            <p className="text-[13px] text-[#7B8FA5] max-w-[260px] mb-4">
+              Get started by sending your first email notification for this record.
+            </p>
+            <button
+              onClick={() => setShowSendEmail(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-[#DFE5ED] text-[#364658] text-[13px] font-medium rounded hover:bg-[#F5F7FA] hover:border-[#3D8BD0] transition-colors"
+            >
+              <Mail size={15} />
+              Send Email
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3 pt-1">
+          {notifications.map((n) => {
+            const expanded = expandedIds.has(n.id);
+            return (
+            <div key={n.id} className="border border-[#E5E7EB] rounded-lg overflow-hidden">
+              {/* Sender details with time — click to expand/collapse */}
+              <button
+                onClick={() => toggleExpand(n.id)}
+                className="w-full flex items-center gap-2 px-3 py-2.5 bg-[#F8FAFC] text-left hover:bg-[#F1F5F9] transition-colors"
+              >
+                <span
+                  className="size-7 rounded flex items-center justify-center text-[11px] font-semibold text-white flex-shrink-0"
+                  style={{ backgroundColor: n.color }}
+                >
+                  {n.initials}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-semibold text-[#364658] truncate">{n.sender}</div>
+                  <div className="text-[11px] text-[#9CA3AF]">{n.time}</div>
+                </div>
+                <Mail size={14} className="text-[#7B8FA5] flex-shrink-0" />
+                {expanded
+                  ? <ChevronDown size={16} className="text-[#7B8FA5] flex-shrink-0" />
+                  : <ChevronRight size={16} className="text-[#7B8FA5] flex-shrink-0" />}
+              </button>
+
+              {/* Collapsed summary — just the subject */}
+              {!expanded && (
+                <div className="px-3 py-2.5 border-t border-[#EEF1F5]">
+                  <div className="flex gap-2 text-[12px]">
+                    <span className="text-[#7B8FA5] flex-shrink-0 w-[110px]">Subject:</span>
+                    <span className="text-[#364658] min-w-0 truncate">{n.subject || '—'}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Expanded full details */}
+              {expanded && (
+              <div className="px-3 py-3 space-y-1.5 border-t border-[#EEF1F5]">
+                <div className="flex gap-2 text-[12px]">
+                  <span className="text-[#7B8FA5] flex-shrink-0 w-[110px]">To:</span>
+                  <span className="text-[#364658] min-w-0 break-words">
+                    {n.to.length === 0 ? '—' : (
+                      <>
+                        {n.to.slice(0, 2).join(', ')}
+                        {n.to.length > 2 && (
+                          <>
+                            {' '}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#EFF3F8] text-[#3D8BD0] text-[11px] font-medium cursor-default align-middle">
+                                  +{n.to.length - 2}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <div className="flex flex-col gap-0.5">
+                                  {n.to.slice(2).map((e, i) => <span key={i}>{e}</span>)}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </span>
+                </div>
+                <Row label="Subject:" value={n.subject} />
+                <Row label="Technician Group:" value={n.technicianGroup} />
+                <Row label="Requester Group:" value={n.requesterGroup} />
+                <div className="pt-1.5 mt-1.5 border-t border-[#F0F2F5]">
+                  <div className="text-[12px] text-[#7B8FA5] mb-1">Content:</div>
+                  <div className="text-[13px] text-[#364658] whitespace-pre-wrap break-words leading-relaxed">
+                    {n.content || '—'}
+                  </div>
+                </div>
+                {n.attachments.length > 0 && (
+                  <div className="pt-1.5 mt-1.5 border-t border-[#F0F2F5]">
+                    <div className="text-[12px] text-[#7B8FA5] mb-1.5">Attachment:</div>
+                    <div className="flex flex-col gap-1.5">
+                      {n.attachments.map((a, i) => (
+                        <div key={i} className="group/att flex items-center gap-2 px-2 py-1.5 rounded border border-[#DFE5ED] bg-[#F8FAFC]">
+                          <FileText size={14} className="text-[#3D8BD0] flex-shrink-0" />
+                          <div className="min-w-0 flex-1 leading-tight">
+                            <div className="text-[12px] text-[#364658] truncate">{a.name}</div>
+                            <div className="text-[10px] text-[#9CA3AF]">{a.size}</div>
+                          </div>
+                          <button
+                            onClick={() => setPreviewAttachment(a)}
+                            className="p-1 rounded text-[#64748B] opacity-0 group-hover/att:opacity-100 hover:bg-[#EBF5FF] transition-opacity"
+                            title="Preview"
+                          >
+                            <Eye size={13} />
+                          </button>
+                          <button className="p-1 rounded text-[#3D8BD0] opacity-0 group-hover/att:opacity-100 hover:bg-[#EBF5FF] transition-opacity" title="Download">
+                            <Download size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              )}
+            </div>
+            );
+          })}
+        </div>
+      )}
+
+      <SendEmailModal
+        isOpen={showSendEmail}
+        onClose={() => setShowSendEmail(false)}
+        recordId={recordId}
+        onSend={onSend}
+      />
+
+      <AttachmentPreviewModal attachment={previewAttachment} onClose={() => setPreviewAttachment(null)} />
+    </div>
+  );
+}
